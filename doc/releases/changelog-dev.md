@@ -874,6 +874,11 @@
 
 <h3>Bug fixes 🐛</h3>
 
+* Fixed a bug in :func:`~.to_openqasm` where gate operands were remapped according to the
+  order in which wires first appear, producing OpenQASM that did not match the original
+  circuit when wires were used out of order.
+  [(#9768)](https://github.com/PennyLaneAI/pennylane/issues/9768)
+
 * Lazily defers checking program capture mode when taking the adjoint and ctrl of a qfunc.
   [(#9626)](https://github.com/PennyLaneAI/pennylane/pull/9626)
 
@@ -974,6 +979,7 @@ Christina Lee,
 Anton Naim Ibrahim,
 Mudit Pandey,
 Andrija Paurevic,
+Vinayak Pawar,
 Francesco Pernice Botta,
 David D.W. Ren,
 Jay Soni,

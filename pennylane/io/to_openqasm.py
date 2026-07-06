@@ -118,7 +118,15 @@ def _tape_openqasm(
     tape: QuantumScript, wires: Wires, rotations: bool, measure_all: bool, precision: None | int
 ) -> str:
     """Helper function to serialize a tape as an OpenQASM 2.0 program."""
-    wires = wires or tape.wires
+
+    # Determine wire labels for consistent qubit indexing
+    if wires is None:
+        try:
+            wire_labels = sorted(tape.wires)
+        except TypeError:
+            wire_labels = tape.wires
+    else:
+        wire_labels = wires
 
     # add the QASM headers
     lines = ["OPENQASM 2.0;", 'include "qelib1.inc";']
@@ -128,10 +136,10 @@ def _tape_openqasm(
         return "\n".join(lines) + "\n"
 
     # create the quantum and classical registers
-    lines.append(f"qreg q[{len(wires)}];")
+    lines.append(f"qreg q[{len(wire_labels)}];")
 
     terminally_measured_wires = (
-        wires
+        wire_labels
         if measure_all
         else Wires.all_wires([m.wires for m in tape.measurements if m.mv is None])
     )
@@ -141,6 +149,7 @@ def _tape_openqasm(
     num_mcms = sum(isinstance(o, MidMeasure) for o in tape.operations)
     if num_mcms:
         lines.append(f"creg mcms[{num_mcms}];")
+
     bit_map = {}
 
     # get the user applied circuit operations without interface information
@@ -168,7 +177,7 @@ def _tape_openqasm(
 
     # create the QASM code representing the operations
     for op in new_tape.operations:
-        lines.append(_obj_string(op, wires, bit_map, precision=precision))
+        lines.append(_obj_string(op, wire_labels, bit_map, precision=precision))
 
     # apply computational basis measurements to each quantum register
     # NOTE: This is not strictly necessary, we could inspect self.observables,
@@ -176,11 +185,11 @@ def _tape_openqasm(
     # some devices which consume QASM require all registers to be measured, so
     # measure all wires by default to be safe.
     if measure_all:
-        for wire in range(len(wires)):
-            lines.append(f"measure q[{wire}] -> c[{wire}];")
+        for idx, w in enumerate(wire_labels):
+            lines.append(f"measure q[{idx}] -> c[{idx}];")
     else:
         for creg_indx, w in enumerate(terminally_measured_wires):
-            qreg_indx = tape.wires.index(w)
+            qreg_indx = wire_labels.index(w)
             lines.append(f"measure q[{qreg_indx}] -> c[{creg_indx}];")
 
     return "\n".join(lines) + "\n"

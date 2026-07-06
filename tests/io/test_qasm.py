@@ -813,3 +813,39 @@ class TestQASMConformanceTests:
         assert gates[5].name == "ry"
         assert gates[5].wires == [2]
         assert gates[5].params == [-np.pi / 4]
+
+
+class TestToOpenQASMWireOrderingRegression:
+    """Regression test for issue #9768: ``to_openqasm`` must preserve wire ordering
+    and not remap gate operands based on the order in which wires first appear."""
+
+    def test_out_of_order_wires_preserve_mapping(self):
+        """Wires used out of their natural order must map to their own register
+        index rather than order of first appearance (issue #9768)."""
+        dev = qp.device("default.qubit", wires=3)
+
+        @qp.qnode(dev)
+        def circuit():
+            qp.PauliX(wires=0)
+            qp.PauliX(wires=2)
+            qp.Toffoli(wires=[0, 1, 2])
+            return qp.state()
+
+        res = qp.to_openqasm(circuit)()
+
+        expected = dedent("""\
+            OPENQASM 2.0;
+            include "qelib1.inc";
+            qreg q[3];
+            creg c[3];
+            x q[0];
+            x q[2];
+            ccx q[0],q[1],q[2];
+            measure q[0] -> c[0];
+            measure q[1] -> c[1];
+            measure q[2] -> c[2];
+            """)
+        assert res == expected
+        # explicit guards against the pre-fix operand remapping
+        assert "ccx q[0],q[2],q[1];" not in res
+        assert "x q[1];" not in res
